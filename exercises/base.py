@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from config.exercise_config import ExerciseConfig
+
 
 class ExerciseStage(str, Enum):
     """Common rep-cycle stages shared across exercises."""
@@ -53,7 +55,8 @@ class BaseExercise(ABC):
     per-exercise drawing without modifying shared infrastructure.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        self.config = config or ExerciseConfig()
         self._reps: int = 0
         self._stage: ExerciseStage = ExerciseStage.IDLE
         self._feedback: list[FeedbackItem] = []

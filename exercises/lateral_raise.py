@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
+from config.exercise_config import ExerciseConfig
 from core.geometry import Geometry
 from core.landmarks import Landmark
 from exercises.base import BaseExercise, ExerciseStage, FeedbackItem
@@ -19,8 +20,8 @@ class LateralRaiseExercise(BaseExercise):
         angle > LATERAL_UP and previous stage DOWN → stage UP, reps += 1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        super().__init__(config)
         self._geometry = Geometry()
         self._shoulder_angle: float = 0.0
 
@@ -39,16 +40,21 @@ class LateralRaiseExercise(BaseExercise):
         previous_stage = self._stage
         self._feedback = []
 
-        if self._shoulder_angle < settings.LATERAL_DOWN:
+        down_threshold = self.config.get("down", settings.LATERAL_DOWN)
+        up_threshold = self.config.get("up", settings.LATERAL_UP)
+
+        if self._shoulder_angle < down_threshold:
             self._stage = ExerciseStage.DOWN
         elif (
-            self._shoulder_angle > settings.LATERAL_UP
+            self._shoulder_angle > up_threshold
             and previous_stage == ExerciseStage.DOWN
         ):
             self._stage = ExerciseStage.UP
             self._reps += 1
 
-        if self._stage == ExerciseStage.UP and self._shoulder_angle < settings.LATERAL_UP:
+        up_threshold = self.config.get("up", settings.LATERAL_UP)
+
+        if self._stage == ExerciseStage.UP and self._shoulder_angle < up_threshold:
             self._feedback.append(
                 FeedbackItem(
                     message="Raise arms higher — parallel to floor",

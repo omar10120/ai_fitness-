@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
+from config.exercise_config import ExerciseConfig
 from core.geometry import Geometry
 from core.landmarks import Landmark
 from exercises.base import BaseExercise, ExerciseStage, FeedbackItem
@@ -19,8 +20,8 @@ class BicepCurlExercise(BaseExercise):
         angle < BICEP_UP and previous stage DOWN → stage UP, reps += 1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        super().__init__(config)
         self._geometry = Geometry()
         self._current_angle: float = 180.0
 
@@ -39,10 +40,13 @@ class BicepCurlExercise(BaseExercise):
         previous_stage = self._stage
         self._feedback = []
 
-        if self._current_angle > settings.BICEP_DOWN:
+        down_threshold = self.config.get("down", settings.BICEP_DOWN)
+        up_threshold = self.config.get("up", settings.BICEP_UP)
+
+        if self._current_angle > down_threshold:
             self._stage = ExerciseStage.DOWN
         elif (
-            self._current_angle < settings.BICEP_UP
+            self._current_angle < up_threshold
             and previous_stage == ExerciseStage.DOWN
         ):
             self._stage = ExerciseStage.UP
@@ -65,7 +69,10 @@ class BicepCurlExercise(BaseExercise):
                 )
             )
 
-        if self._stage == ExerciseStage.DOWN and self._current_angle < settings.BICEP_UP:
+        up_threshold = self.config.get("up", settings.BICEP_UP)
+        down_threshold = self.config.get("down", settings.BICEP_DOWN)
+
+        if self._stage == ExerciseStage.DOWN and self._current_angle < up_threshold:
             self._feedback.append(
                 FeedbackItem(
                     message="Incomplete extension — straighten arm",
@@ -74,7 +81,7 @@ class BicepCurlExercise(BaseExercise):
                 )
             )
 
-        if self._stage == ExerciseStage.UP and self._current_angle > settings.BICEP_DOWN:
+        if self._stage == ExerciseStage.UP and self._current_angle > down_threshold:
             self._feedback.append(
                 FeedbackItem(
                     message="Curl higher — bring wrist closer to shoulder",

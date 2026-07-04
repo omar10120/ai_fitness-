@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
+from config.exercise_config import ExerciseConfig
 from core.geometry import Geometry
 from core.landmarks import Landmark
 from exercises.base import BaseExercise, ExerciseStage, FeedbackItem
@@ -19,8 +20,8 @@ class JumpingJackExercise(BaseExercise):
         arms up + feet apart and previous DOWN → stage UP, reps += 1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        super().__init__(config)
         self._geometry = Geometry()
         self._ankle_spread: float = 0.0
 
@@ -46,16 +47,20 @@ class JumpingJackExercise(BaseExercise):
         self._ankle_spread = self._geometry.distance(left_ankle, right_ankle)
         self._metrics = {"ankle_spread": self._ankle_spread}
 
+        arm_clearance = self.config.get("arm_clearance", settings.JACK_ARM_CLEARANCE)
+        leg_spread = self.config.get("leg_spread", settings.JACK_LEG_SPREAD)
+        leg_together = self.config.get("leg_together", settings.JACK_LEG_TOGETHER)
+
         arms_up = (
-            left_wrist_y < left_shoulder_y - settings.JACK_ARM_CLEARANCE
-            and right_wrist_y < right_shoulder_y - settings.JACK_ARM_CLEARANCE
+            left_wrist_y < left_shoulder_y - arm_clearance
+            and right_wrist_y < right_shoulder_y - arm_clearance
         )
         arms_down = (
-            left_wrist_y > left_shoulder_y + settings.JACK_ARM_CLEARANCE
-            and right_wrist_y > right_shoulder_y + settings.JACK_ARM_CLEARANCE
+            left_wrist_y > left_shoulder_y + arm_clearance
+            and right_wrist_y > right_shoulder_y + arm_clearance
         )
-        legs_apart = self._ankle_spread > settings.JACK_LEG_SPREAD
-        legs_together = self._ankle_spread < settings.JACK_LEG_TOGETHER
+        legs_apart = self._ankle_spread > leg_spread
+        legs_together = self._ankle_spread < leg_together
 
         previous_stage = self._stage
         self._feedback = []

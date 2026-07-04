@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from config.exercise_config import ExerciseConfig
 from exercises import DEFAULT_EXERCISE, EXERCISE_REGISTRY
 from exercises.base import BaseExercise, ExerciseState
 
@@ -41,12 +42,17 @@ class ExerciseManager:
         self._registry[key] = exercise_cls
         logger.info("Registered exercise: %s", key)
 
-    def select(self, key: str) -> BaseExercise:
+    def select(
+        self,
+        key: str,
+        config: ExerciseConfig | None = None,
+    ) -> BaseExercise:
         """
         Activate an exercise by registry key.
 
         Args:
             key: Exercise slug.
+            config: Optional runtime thresholds from Laravel.
 
         Returns:
             The newly active exercise instance.
@@ -57,7 +63,8 @@ class ExerciseManager:
         if key not in self._registry:
             raise KeyError(f"Exercise '{key}' is not registered")
 
-        self._active = self._registry[key]()
+        exercise_config = config or ExerciseConfig.defaults_for(key)
+        self._active = self._registry[key](config=exercise_config)
         self._active_key = key
         logger.info("Selected exercise: %s", key)
         return self._active

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
+from config.exercise_config import ExerciseConfig
 from core.geometry import Geometry
 from core.landmarks import Landmark
 from exercises.base import BaseExercise, ExerciseStage, FeedbackItem
@@ -19,8 +20,8 @@ class LungeExercise(BaseExercise):
         angle > LUNGE_KNEE_UP and previous stage DOWN → stage UP, reps += 1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        super().__init__(config)
         self._geometry = Geometry()
         self._knee_angle: float = 180.0
 
@@ -39,10 +40,15 @@ class LungeExercise(BaseExercise):
         previous_stage = self._stage
         self._feedback = []
 
-        if self._knee_angle < settings.LUNGE_KNEE_DOWN:
+        down_threshold = self.config.get("down", settings.LUNGE_KNEE_DOWN)
+        up_threshold = self.config.get("up", settings.LUNGE_KNEE_UP)
+        knee_over_toe = self.config.get("knee_over_toe", settings.LUNGE_KNEE_OVER_TOE)
+        hip_tilt = self.config.get("hip_tilt", settings.LUNGE_HIP_TILT)
+
+        if self._knee_angle < down_threshold:
             self._stage = ExerciseStage.DOWN
         elif (
-            self._knee_angle > settings.LUNGE_KNEE_UP
+            self._knee_angle > up_threshold
             and previous_stage == ExerciseStage.DOWN
         ):
             self._stage = ExerciseStage.UP
@@ -50,7 +56,7 @@ class LungeExercise(BaseExercise):
 
         knee_x = landmarks[Landmark.LEFT_KNEE].x
         ankle_x = landmarks[Landmark.LEFT_ANKLE].x
-        if abs(knee_x - ankle_x) > settings.LUNGE_KNEE_OVER_TOE:
+        if abs(knee_x - ankle_x) > knee_over_toe:
             self._feedback.append(
                 FeedbackItem(
                     message="Keep knee over ankle — don't let it pass toes",
@@ -61,7 +67,7 @@ class LungeExercise(BaseExercise):
 
         hip_y = landmarks[Landmark.LEFT_HIP].y
         right_hip_y = landmarks[Landmark.RIGHT_HIP].y
-        if abs(hip_y - right_hip_y) > settings.LUNGE_HIP_TILT:
+        if abs(hip_y - right_hip_y) > hip_tilt:
             self._feedback.append(
                 FeedbackItem(
                     message="Keep hips square and level",

@@ -1,0 +1,349 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "AI Fitness Coach API",
+    "description": "FastAPI AI Engine for Laravel + Flutter integration.\n\n**Flow:** Health → Get Config → Start Workout → Poll State / WebSocket → Stop Workout\n\n**Setup:**\n1. Import this collection\n2. Set `base_url` (default `http://localhost:8000`)\n3. Set `bearer_token` (matches `AI_SERVICE_TOKEN` in `.env`)\n4. Run **Start Workout** — `session_id` is saved automatically\n\n**Exercises:** `bicep_curl`, `squat`, `pushup`, `shoulder_press`, `lateral_raise`, `tricep_extension`, `lunge`, `jumping_jack`",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "base_url_ws",
+      "value": "ws://localhost:8000"
+    },
+    {
+      "key": "bearer_token",
+      "value": "1234567890"
+    },
+    {
+      "key": "session_id",
+      "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": "15"
+    },
+    {
+      "key": "exercise",
+      "value": "bicep_curl"
+    },
+    {
+      "key": "camera",
+      "value": "front"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{bearer_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "System",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Service health probe. No authentication required."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": \"ok\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Config",
+      "item": [
+        {
+          "name": "Get Exercise Config",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/laravel/exercise-config/{{exercise}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "laravel", "exercise-config", "{{exercise}}"]
+            },
+            "description": "Fetch exercise thresholds from Laravel (falls back to local defaults)."
+          },
+          "response": [
+            {
+              "name": "200 OK — bicep_curl",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"exercise\": \"bicep_curl\",\n  \"angles\": {\n    \"up\": 40,\n    \"down\": 160\n  },\n  \"side\": \"left\",\n  \"thresholds\": {}\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workout",
+      "item": [
+        {
+          "name": "Start Workout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('session_id', json.session_id);",
+                  "    pm.test('Session ID returned', () => pm.expect(json.session_id).to.be.a('string').and.not.empty);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{user_id}},\n  \"exercise\": \"{{exercise}}\",\n  \"camera\": \"{{camera}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "start"]
+            },
+            "description": "Start a live AI workout session. Opens webcam and begins pose detection.\n\n**camera:** `front` | `back`"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"session_id\": \"550e8400-e29b-41d4-a716-446655440000\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Workout State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/workout/state/{{session_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "state", "{{session_id}}"]
+            },
+            "description": "Poll current exercise state for an active session."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"exercise\": \"bicep_curl\",\n  \"reps\": 6,\n  \"stage\": \"UP\",\n  \"score\": 91.0,\n  \"calories\": 23.5,\n  \"feedback\": [\n    {\n      \"code\": \"INCOMPLETE_EXTENSION\",\n      \"severity\": \"medium\",\n      \"message\": \"Incomplete extension — straighten arm\"\n    }\n  ],\n  \"angles\": {\n    \"left_elbow_angle\": 38.2,\n    \"left_elbow\": 38.2\n  },\n  \"fps\": 28.5,\n  \"timestamp\": \"2026-07-04T17:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Stop Workout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"{{session_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/stop",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "stop"]
+            },
+            "description": "Stop an active session and return workout summary."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"duration\": 65,\n  \"reps\": 12,\n  \"score\": 94.0,\n  \"calories\": 38.0\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "WebSocket",
+      "item": [
+        {
+          "name": "Workout Live Stream",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url_ws}}/ws/workout/{{session_id}}?token={{bearer_token}}",
+              "host": ["{{base_url_ws}}"],
+              "path": ["ws", "workout", "{{session_id}}"],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}"
+                }
+              ]
+            },
+            "description": "WebSocket stream of processed ExerciseState JSON (~30 FPS).\n\n**Postman:** Use the WebSocket tab (Postman v10+).\n\nReplace `http` with `ws` in the URL:\n`ws://localhost:8000/ws/workout/{session_id}?token=YOUR_TOKEN`\n\nNo raw landmarks are sent — only reps, stage, score, feedback, angles, fps."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Exercises (examples)",
+      "item": [
+        {
+          "name": "Start — Squat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{user_id}},\n  \"exercise\": \"squat\",\n  \"camera\": \"front\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "start"]
+            }
+          }
+        },
+        {
+          "name": "Start — Push-up",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{user_id}},\n  \"exercise\": \"pushup\",\n  \"camera\": \"front\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "start"]
+            }
+          }
+        },
+        {
+          "name": "Start — Lateral Raise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{user_id}},\n  \"exercise\": \"lateral_raise\",\n  \"camera\": \"front\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "start"]
+            }
+          }
+        },
+        {
+          "name": "Start — Jumping Jack",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": {{user_id}},\n  \"exercise\": \"jumping_jack\",\n  \"camera\": \"front\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/workout/start",
+              "host": ["{{base_url}}"],
+              "path": ["api", "workout", "start"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

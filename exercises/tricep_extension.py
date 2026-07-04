@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from config import settings
+from config.exercise_config import ExerciseConfig
 from core.geometry import Geometry
 from core.landmarks import Landmark
 from exercises.base import BaseExercise, ExerciseStage, FeedbackItem
@@ -19,8 +20,8 @@ class TricepExtensionExercise(BaseExercise):
         angle > TRICEP_EXTEND and previous stage DOWN → stage UP, reps += 1
     """
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, config: ExerciseConfig | None = None) -> None:
+        super().__init__(config)
         self._geometry = Geometry()
         self._elbow_angle: float = 180.0
 
@@ -42,16 +43,19 @@ class TricepExtensionExercise(BaseExercise):
         previous_stage = self._stage
         self._feedback = []
 
-        if self._elbow_angle < settings.TRICEP_BENT:
+        bent_threshold = self.config.get("down", settings.TRICEP_BENT)
+        extend_threshold = self.config.get("up", settings.TRICEP_EXTEND)
+
+        if self._elbow_angle < bent_threshold:
             self._stage = ExerciseStage.DOWN
         elif (
-            self._elbow_angle > settings.TRICEP_EXTEND
+            self._elbow_angle > extend_threshold
             and previous_stage == ExerciseStage.DOWN
         ):
             self._stage = ExerciseStage.UP
             self._reps += 1
 
-        if self._stage == ExerciseStage.DOWN and self._elbow_angle > settings.TRICEP_BENT:
+        if self._stage == ExerciseStage.DOWN and self._elbow_angle > bent_threshold:
             self._feedback.append(
                 FeedbackItem(
                     message="Flex deeper — lower the weight behind head",
@@ -60,7 +64,7 @@ class TricepExtensionExercise(BaseExercise):
                 )
             )
 
-        if self._stage == ExerciseStage.UP and self._elbow_angle < settings.TRICEP_EXTEND:
+        if self._stage == ExerciseStage.UP and self._elbow_angle < extend_threshold:
             self._feedback.append(
                 FeedbackItem(
                     message="Extend fully — straighten arm overhead",
