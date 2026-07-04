@@ -128,3 +128,13 @@ class BaseExercise(ABC):
     def joint_angles(self) -> dict[str, float]:
         """Return labeled joint angles for the drawing layer."""
         return {}
+
+    def _apply_feedback_score(self) -> None:
+        """Derive form score from active feedback severity levels."""
+        penalty = 0
+        for item in self._feedback:
+            if item.severity == "warning":
+                penalty += 10
+            elif item.severity == "error":
+                penalty += 25
+        self._score = max(0.0, 100.0 - penalty)

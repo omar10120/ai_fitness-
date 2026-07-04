@@ -41,6 +41,25 @@ PUSHUP_DOWN = 90
 SHOULDER_PRESS_UP = 160
 SHOULDER_PRESS_DOWN = 90
 
+# Lateral raise thresholds (hip-shoulder-elbow angle, degrees)
+LATERAL_DOWN = 30
+LATERAL_UP = 75
+
+# Tricep extension thresholds (right elbow angle, degrees)
+TRICEP_BENT = 90
+TRICEP_EXTEND = 155
+
+# Lunge thresholds (left knee angle, degrees)
+LUNGE_KNEE_DOWN = 100
+LUNGE_KNEE_UP = 160
+LUNGE_KNEE_OVER_TOE = 0.08
+LUNGE_HIP_TILT = 0.06
+
+# Jumping jack thresholds (normalized coordinates)
+JACK_ARM_CLEARANCE = 0.05
+JACK_LEG_SPREAD = 0.25
+JACK_LEG_TOGETHER = 0.15
+
 # Drawing colors (BGR)
 COLOR_SKELETON = (255, 0, 0)
 COLOR_LANDMARK = (0, 255, 0)

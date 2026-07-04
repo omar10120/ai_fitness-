@@ -49,7 +49,7 @@ class BicepCurlExercise(BaseExercise):
             self._reps += 1
 
         self._analyze_form(landmarks)
-        self._update_score()
+        self._apply_feedback_score()
 
     def _analyze_form(self, landmarks: list[Any]) -> None:
         """Detect incorrect form and populate structured feedback."""
@@ -85,17 +85,6 @@ class BicepCurlExercise(BaseExercise):
 
         # TODO: Detect elbow drift (lateral movement) using wrist-elbow vector stability.
         # TODO: Support right-arm tracking based on user preference / camera mirroring.
-
-    def _update_score(self) -> None:
-        """Derive a simple form score from active feedback items."""
-        penalty = 0
-        for item in self._feedback:
-            if item.severity == "warning":
-                penalty += 10
-            elif item.severity == "error":
-                penalty += 25
-
-        self._score = max(0.0, 100.0 - penalty)
 
     def joint_angles(self) -> dict[str, float]:
         return {"left_elbow": self._current_angle}

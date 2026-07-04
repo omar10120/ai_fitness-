@@ -36,6 +36,10 @@ EXERCISE_KEYS = {
     ord("2"): "squat",
     ord("3"): "pushup",
     ord("4"): "shoulder_press",
+    ord("5"): "lateral_raise",
+    ord("6"): "tricep_extension",
+    ord("7"): "lunge",
+    ord("8"): "jumping_jack",
 }
 
 
@@ -52,7 +56,7 @@ def main() -> None:
         logger.error("Failed to start pose detector. Exiting.")
         return
 
-    logger.info("Press 1-4 to switch exercises. ESC to quit.")
+    logger.info("Press 1-8 to switch exercises. R to reset. ESC to quit.")
     logger.info("Available exercises: %s", exercise_manager.available)
 
     try:
