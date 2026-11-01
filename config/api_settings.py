@@ -11,7 +11,7 @@ class ApiSettings:
     """Environment-driven API configuration."""
 
     host: str = os.getenv("AI_HOST", "0.0.0.0")
-    port: int = int(os.getenv("AI_PORT", "8000"))
+    port: int = int(os.getenv("AI_PORT", "8001"))
     laravel_base_url: str = os.getenv("LARAVEL_BASE_URL", "http://localhost:8000")
     laravel_config_path: str = os.getenv(
         "LARAVEL_CONFIG_PATH", "/api/exercise-config"
