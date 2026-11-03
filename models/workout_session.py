@@ -12,6 +12,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 from uuid import UUID
 
 import numpy as np
@@ -27,6 +28,31 @@ from utils.camera import Camera
 from utils.fps import FpsCounter
 
 logger = logging.getLogger(__name__)
+
+
+def _landmarks_to_json(
+    landmarks: list[Any] | None,
+) -> list[dict[str, float]] | None:
+    if not landmarks:
+        return None
+
+    if isinstance(landmarks[0], list):
+        landmarks = [landmark for batch in landmarks for landmark in batch]
+
+    try:
+        return [
+            {"x": float(landmark.x), "y": float(landmark.y), "z": float(landmark.z)}
+            for landmark in landmarks
+        ]
+    except AttributeError:
+        return [
+            {
+                "x": float(landmark["x"]),
+                "y": float(landmark["y"]),
+                "z": float(landmark["z"]),
+            }
+            for landmark in landmarks
+        ]
 
 
 @dataclass
@@ -82,6 +108,7 @@ class WorkoutSession:
         inference matches the existing processing loop's threading model.
         """
         landmarks = self.landmarker.detect(frame_bgr, self._timestamp_ms)
+        raw_landmarks_json = _landmarks_to_json(landmarks)
         self._timestamp_ms += self.settings.frame_timestamp_ms
         self.exercise_manager.update(landmarks)
         self._fps = self._fps_counter.update()
@@ -101,6 +128,7 @@ class WorkoutSession:
             self.elapsed_seconds(),
             self.api_settings,
             angles,
+            raw_landmarks_json,
         )
         self._current_state = state
         return state
@@ -188,6 +216,7 @@ class WorkoutSession:
                     frame,
                     self._timestamp_ms,
                 )
+                raw_landmarks_json = _landmarks_to_json(landmarks)
                 self._timestamp_ms += self.settings.frame_timestamp_ms
 
                 self.exercise_manager.update(landmarks)
@@ -208,6 +237,7 @@ class WorkoutSession:
                     self.elapsed_seconds(),
                     self.api_settings,
                     angles,
+                    raw_landmarks_json,
                 )
 
                 async with self._state_lock:

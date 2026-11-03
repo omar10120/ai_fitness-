@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -23,6 +24,7 @@ class ExerciseState(BaseModel):
     angles: dict[str, float]
     fps: float
     timestamp: datetime
+    landmarks: Optional[List[Dict[str, float]]] = None
 
 
 class WorkoutStartResponse(BaseModel):

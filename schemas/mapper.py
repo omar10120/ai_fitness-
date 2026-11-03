@@ -47,6 +47,7 @@ def to_exercise_state(
     duration_seconds: int,
     api_settings: ApiSettings | None = None,
     joint_angles: dict[str, float] | None = None,
+    landmarks: list[dict] | None = None,
 ) -> ExerciseState:
     """Build API ExerciseState from internal dataclass."""
     if internal is None:
@@ -60,6 +61,7 @@ def to_exercise_state(
             angles={},
             fps=fps,
             timestamp=datetime.now(timezone.utc),
+            landmarks=landmarks,
         )
 
     angles = dict(internal.metrics)
@@ -75,4 +77,5 @@ def to_exercise_state(
         angles=angles,
         fps=round(fps, 1),
         timestamp=datetime.now(timezone.utc),
+        landmarks=landmarks,
     )
