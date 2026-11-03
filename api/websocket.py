@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
+import cv2
+import numpy as np
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.session_service import SessionNotFoundError
@@ -34,7 +35,7 @@ async def _validate_ws_token(websocket: WebSocket) -> bool:
 @router.websocket("/ws/workout/{session_id}")
 async def workout_stream(websocket: WebSocket, session_id: str) -> None:
     """
-    Stream processed ExerciseState JSON to connected clients.
+    Receive mobile JPEG frames and send processed ExerciseState JSON.
 
     Connect with ``?token=<bearer_token>``.
     Sends only processed metrics — never raw landmarks.
@@ -51,27 +52,35 @@ async def workout_stream(websocket: WebSocket, session_id: str) -> None:
         return
 
     await websocket.accept()
-    target_fps = session.api_settings.websocket_target_fps
-    interval = 1.0 / max(1, target_fps)
-
     logger.info("WebSocket connected session=%s", session_id)
 
     try:
         while session.is_running:
-            state = await session.get_state()
-            await websocket.send_json(state.model_dump(mode="json"))
+            message = await websocket.receive()
 
-            if state.fps > 0:
-                logger.debug(
-                    "WebSocket state session=%s reps=%s fps=%.1f",
-                    session_id,
-                    state.reps,
-                    state.fps,
+            if message.get("bytes") is not None:
+                frame = cv2.imdecode(
+                    np.frombuffer(message["bytes"], np.uint8),
+                    cv2.IMREAD_COLOR,
                 )
+                if frame is None:
+                    logger.debug(
+                        "WS: dropped non-decodable frame session=%s", session_id
+                    )
+                    continue
 
-            await asyncio.sleep(interval)
+                state = session.process_frame(frame)
+                await websocket.send_json(state.model_dump(mode="json"))
+                continue
+
+            if message.get("text") == "stop":
+                break
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected session=%s", session_id)
     except Exception:
-        logger.exception("WebSocket error session=%s", session_id)
-        await websocket.close(code=1011, reason="Internal error")
+        logger.exception("WS processing error session=%s", session_id)
+    finally:
+        try:
+            await session.stop()
+        except Exception:
+            logger.exception("Error stopping session on WS close session=%s", session_id)

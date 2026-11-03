@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
+# NOTE: In production the camera is streamed from the mobile client
+# over WebSocket. `_processing_loop()` and `utils/camera.py` are kept
+# for local development only and are not invoked by `start()` in the
+# mobile flow.
+
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
 from uuid import UUID
+
+import numpy as np
 
 from config.api_settings import ApiSettings
 from config.exercise_config import ExerciseConfig
@@ -22,16 +28,14 @@ from utils.fps import FpsCounter
 
 logger = logging.getLogger(__name__)
 
-CAMERA_MAP = {"front": 0, "back": 1}
-
 
 @dataclass
 class WorkoutSession:
     """
     Encapsulates a single user's live workout.
 
-    Supports concurrent sessions — each instance owns its own camera,
-    exercise manager, and processing loop.
+    Supports concurrent sessions — each instance owns its own exercise
+    manager and processing state.
     """
 
     session_id: UUID
@@ -60,23 +64,46 @@ class WorkoutSession:
         return max(0, int(delta.total_seconds()))
 
     async def start(self) -> None:
-        """Open camera and begin the pose processing loop."""
-        camera_index = CAMERA_MAP.get(self.camera, 0)
-        session_settings = replace(self.settings, camera_index=camera_index)
-
-        self._camera = Camera(session_settings)
-        if not self._camera.start():
-            raise RuntimeError(f"Failed to open camera '{self.camera}'")
-
+        """Prepare session. No camera is opened — the mobile client streams frames."""
         self.exercise_manager.select(self.exercise_key, self.exercise_config)
         self._running = True
-        self._task = asyncio.create_task(self._processing_loop())
         logger.info(
-            "Workout started session=%s user=%s exercise=%s",
+            "Workout started session=%s user=%s exercise=%s source=%s",
             self.session_id,
             self.user_id,
             self.exercise_key,
+            self.camera,
         )
+
+    def process_frame(self, frame_bgr: np.ndarray) -> ExerciseState:
+        """Process one BGR frame received from the mobile client.
+
+        This runs synchronously in the WebSocket connection's task so the
+        inference matches the existing processing loop's threading model.
+        """
+        landmarks = self.landmarker.detect(frame_bgr, self._timestamp_ms)
+        self._timestamp_ms += self.settings.frame_timestamp_ms
+        self.exercise_manager.update(landmarks)
+        self._fps = self._fps_counter.update()
+
+        internal_state = self.exercise_manager.get_state()
+        angles = self.exercise_manager.joint_angles()
+        if internal_state is not None:
+            merged_metrics = dict(internal_state.metrics)
+            merged_metrics.update(angles)
+            internal_state.metrics.clear()
+            internal_state.metrics.update(merged_metrics)
+
+        state = to_exercise_state(
+            self.exercise_key,
+            internal_state,
+            self._fps,
+            self.elapsed_seconds(),
+            self.api_settings,
+            angles,
+        )
+        self._current_state = state
+        return state
 
     async def stop(self) -> WorkoutStopResponse:
         """Stop processing and return workout summary."""
@@ -141,7 +168,7 @@ class WorkoutSession:
             )
 
     async def _processing_loop(self) -> None:
-        """Background loop — capture frames, detect pose, update exercise."""
+        """Local-dev only. Mobile clients stream frames via WebSocket instead."""
         frame_interval = 1.0 / max(1, self.api_settings.websocket_target_fps)
 
         try:
