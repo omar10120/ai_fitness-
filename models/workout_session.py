@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -28,6 +29,24 @@ from utils.camera import Camera
 from utils.fps import FpsCounter
 
 logger = logging.getLogger(__name__)
+
+_LANDMARKER_TIMESTAMP_LOCK = threading.Lock()
+_last_landmarker_timestamp_ms = 0
+
+
+def _detect_landmarks(
+    landmarker: LandmarkerService,
+    frame: np.ndarray,
+) -> list[Any] | None:
+    global _last_landmarker_timestamp_ms
+
+    with _LANDMARKER_TIMESTAMP_LOCK:
+        timestamp_ms = max(
+            time.time_ns() // 1_000_000,
+            _last_landmarker_timestamp_ms + 1,
+        )
+        _last_landmarker_timestamp_ms = timestamp_ms
+        return landmarker.detect(frame, timestamp_ms)
 
 
 def _landmarks_to_json(
@@ -77,7 +96,6 @@ class WorkoutSession:
 
     _camera: Camera | None = field(default=None, init=False, repr=False)
     _fps_counter: FpsCounter = field(default_factory=FpsCounter, init=False, repr=False)
-    _timestamp_ms: int = field(default=0, init=False)
     _running: bool = field(default=False, init=False)
     _task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
     _current_state: ExerciseState | None = field(default=None, init=False)
@@ -107,9 +125,8 @@ class WorkoutSession:
         This runs synchronously in the WebSocket connection's task so the
         inference matches the existing processing loop's threading model.
         """
-        landmarks = self.landmarker.detect(frame_bgr, self._timestamp_ms)
+        landmarks = _detect_landmarks(self.landmarker, frame_bgr)
         raw_landmarks_json = _landmarks_to_json(landmarks)
-        self._timestamp_ms += self.settings.frame_timestamp_ms
         self.exercise_manager.update(landmarks)
         self._fps = self._fps_counter.update()
 
@@ -212,12 +229,11 @@ class WorkoutSession:
                     continue
 
                 landmarks = await asyncio.to_thread(
-                    self.landmarker.detect,
+                    _detect_landmarks,
+                    self.landmarker,
                     frame,
-                    self._timestamp_ms,
                 )
                 raw_landmarks_json = _landmarks_to_json(landmarks)
-                self._timestamp_ms += self.settings.frame_timestamp_ms
 
                 self.exercise_manager.update(landmarks)
                 self._fps = self._fps_counter.update()
